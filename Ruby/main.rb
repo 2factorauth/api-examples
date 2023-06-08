@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
-
+require 'rubygems'
 require 'net/http'
 require 'uri'
 require 'gpgme'
@@ -8,7 +8,13 @@ require 'dnsruby'
 require 'base64'
 
 # Retrieve signature
-ret = Dnsruby::Resolver.new.query('security.2fa.directory', 'CERT')
+resolver = Dnsruby::Resolver.new
+Dnsruby::Dnssec.default_resolver = resolver
+Dnsruby::Dnssec.validation_policy = Dnsruby::Dnssec::ValidationPolicy::ROOT_THEN_LOCAL_ANCHORS
+resolver.dnssec = true
+resolver.do_validation = true
+ret = resolver.query('security.2fa.directory', 'CERT')
+raise "Insecure DNS response. DNSSEC: #{ret.security_level}" unless ret.security_level.eql? 'SECURE'
 
 # Import public key(s) from CERT RR
 imports = GPGME::Key.import(ret.answer.rrsets[0][0].cert).imports
